@@ -1,0 +1,107 @@
+diff --git a/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py b/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py
+index d09599e87..d12945c40 100644
+--- a/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py
++++ b/litellm/llms/vertex_ai/gemini/vertex_and_google_ai_studio_gemini.py
+@@ -95,6 +95,41 @@ else:
+     LoggingClass = Any
+ 
+ 
++def _dump_gemini_traffic(direction: str, url: str, headers: dict, data: Any, response_text: str = "") -> None:
++    """Dump Gemini HTTP traffic to /tmp/litegemini.txt in JSON Lines format for machine readability."""
++    try:
++        import datetime
++        timestamp = datetime.datetime.now().isoformat()
++        
++        log_entry = {
++            "timestamp": timestamp,
++            "direction": direction,
++            "url": url,
++            "headers": dict(headers)
++        }
++        
++        if direction == "REQUEST":
++            if isinstance(data, str):
++                try:
++                    log_entry["request_body"] = json.loads(data)
++                except json.JSONDecodeError:
++                    log_entry["request_body"] = data
++            else:
++                log_entry["request_body"] = data
++        elif direction in ["RESPONSE", "STREAMING_RESPONSE"]:
++            if response_text:
++                try:
++                    log_entry["response_body"] = json.loads(response_text)
++                except json.JSONDecodeError:
++                    log_entry["response_body"] = response_text
++        
++        with open("/tmp/litegemini.txt", "a", encoding="utf-8") as f:
++            f.write(json.dumps(log_entry) + "\n")
++            
++    except Exception as e:
++        verbose_logger.warning(f"Failed to dump Gemini traffic: {e}")
++
++
+ class VertexAIBaseConfig:
+     def get_mapped_special_auth_params(self) -> dict:
+         """
+@@ -1437,6 +1472,9 @@ async def make_call(
+         )
+ 
+     try:
++        # Dump request traffic
++        _dump_gemini_traffic("REQUEST", api_base, headers, data)
++        
+         response = await client.post(api_base, headers=headers, data=data, stream=True)
+         response.raise_for_status()
+     except httpx.HTTPStatusError as e:
+@@ -1484,6 +1522,9 @@ def make_sync_call(
+     if client is None:
+         client = HTTPHandler()  # Create a new client if none provided
+ 
++    # Dump request traffic
++    _dump_gemini_traffic("REQUEST", api_base, headers, data)
++
+     response = client.post(api_base, headers=headers, data=data, stream=True)
+ 
+     if response.status_code != 200 and response.status_code != 201:
+@@ -1682,10 +1723,16 @@ class VertexLLM(VertexBase):
+         )
+ 
+         try:
++            # Dump request traffic
++            _dump_gemini_traffic("REQUEST", api_base, headers, request_body)
++            
+             response = await client.post(
+                 api_base, headers=headers, json=cast(dict, request_body)
+             )  # type: ignore
+             response.raise_for_status()
++            
++            # Dump response traffic
++            _dump_gemini_traffic("RESPONSE", api_base, headers, None, response.text)
+         except httpx.HTTPStatusError as err:
+             error_code = err.response.status_code
+             raise VertexAIError(
+@@ -1886,8 +1933,14 @@ class VertexLLM(VertexBase):
+             client = client
+ 
+         try:
++            # Dump request traffic
++            _dump_gemini_traffic("REQUEST", url, headers, data)
++            
+             response = client.post(url=url, headers=headers, json=data)  # type: ignore
+             response.raise_for_status()
++            
++            # Dump response traffic
++            _dump_gemini_traffic("RESPONSE", url, headers, None, response.text)
+         except httpx.HTTPStatusError as err:
+             error_code = err.response.status_code
+             raise VertexAIError(
+@@ -1934,6 +1987,8 @@ class ModelResponseIterator:
+     def chunk_parser(self, chunk: dict) -> Optional["ModelResponseStream"]:
+         try:
+             verbose_logger.debug(f"RAW GEMINI CHUNK: {chunk}")
++            # Dump streaming response traffic
++            _dump_gemini_traffic("STREAMING_RESPONSE", "streaming", {}, None, json.dumps(chunk))
+             from litellm.types.utils import ModelResponseStream
+ 
+             processed_chunk = GenerateContentResponseBody(**chunk)  # type: ignore

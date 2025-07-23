@@ -6,6 +6,14 @@ spec:
   containers:
     - name: lightspeed-stack
       image: ${LIGHTSPEED_STACK_IMAGE_OVERRIDE}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          microdnf install -y patch &&
+          pushd /app-root/.venv/lib/python3.12/site-packages/ &&
+          patch -p1 < /patch &&
+          popd &&
+          exec python3.12 src/lightspeed_stack.py
       env:
         - name: GEMINI_API_KEY
           value: ${GEMINI_API_KEY}
@@ -13,6 +21,9 @@ spec:
         - containerPort: 8090
           hostPort: 8090
       volumeMounts:
+        - mountPath: /patch
+          name: litepatch
+          readOnly: true
         - mountPath: /app-root/lightspeed-stack.yaml:Z
           name: config
           subPath: lightspeed-stack.yaml
@@ -67,3 +78,7 @@ spec:
       hostPath:
         path: ./config
         type: Directory
+    - name: litepatch
+      hostPath:
+        path: ./litepatch
+        type: File
