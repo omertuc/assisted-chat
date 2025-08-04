@@ -4,7 +4,7 @@
 .PHONY: all \
 	build-images \
 	build-inspector build-assisted-mcp build-lightspeed-stack build-lightspeed-plus-llama-stack build-ui \
-	generate run resume stop rm logs query query-interactive mcphost test-eval help
+	generate run resume stop rm logs query query-interactive mcphost sqlite test-eval help psql
 
 all: help ## Show help information
 
@@ -67,6 +67,16 @@ query-interactive: ## Query the assisted-chat services in interactive mode
 mcphost: ## Attach to mcphost
 	@echo "Attaching to mcphost..."
 	./scripts/mcphost.sh
+
+psql: ## Connect to PostgreSQL database in the assisted-chat pod
+	@echo "Connecting to PostgreSQL database..."
+	@podman exec -it assisted-chat-pod-postgres env PGOPTIONS='-c search_path="lightspeed-stack",public' psql -U assisted-chat -d assisted-chat
+
+sqlite: ## Copy SQLite database from pod and open in browser
+	@echo "Copying SQLite database from pod..."
+	@podman cp assisted-chat-pod-lightspeed-stack:/tmp/assisted-chat.db /tmp/assisted-chat.db
+	@echo "Opening SQLite database in browser..."
+	@sqlitebrowser /tmp/assisted-chat.db
 
 test-eval: ## Run agent evaluation tests
 	@echo "Refreshing OCM token..."

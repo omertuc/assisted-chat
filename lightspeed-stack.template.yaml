@@ -30,3 +30,11 @@ customization:
 inference:
   default_model: gemini/gemini/gemini-2.0-flash
   default_provider: gemini
+database:
+  postgres:
+    host: localhost
+    port: 5432
+    db: assisted-chat
+    user: assisted-chat
+    password: assisted-chat
+    namespace: lightspeed-stack

@@ -9,16 +9,16 @@ spec:
       env:
         - name: GEMINI_API_KEY
           value: ${GEMINI_API_KEY}
-        - name: LLAMA_STACK_POSTGRES_HOST
+        - name: POSTGRES_HOST
           value: localhost
-        - name: LLAMA_STACK_POSTGRES_PORT
+        - name: POSTGRES_PORT
           value: "5432"
-        - name: LLAMA_STACK_POSTGRES_USER
-          value: llamastack
-        - name: LLAMA_STACK_POSTGRES_PASSWORD
-          value: llamastack
-        - name: LLAMA_STACK_POSTGRES_NAME
-          value: llamastack
+        - name: POSTGRES_USER
+          value: assisted-chat
+        - name: POSTGRES_PASSWORD
+          value: assisted-chat
+        - name: POSTGRES_DB
+          value: assisted-chat
       ports:
         - containerPort: 8090
           hostPort: 8090
@@ -32,6 +32,8 @@ spec:
         - mountPath: /tmp/systemprompt.txt
           name: config
           subPath: systemprompt.txt
+        - mountPath: /app-root/src
+          name: lightspeed-stack-src
     - name: assisted-service-mcp
       image: localhost/local-ai-chat-assisted-service-mcp:latest
     - name: ui
@@ -76,11 +78,11 @@ spec:
       image: registry.redhat.io/rhel9/postgresql-16:latest
       env:
         - name: POSTGRESQL_USER
-          value: llamastack
+          value: assisted-chat
         - name: POSTGRESQL_PASSWORD
-          value: llamastack
+          value: assisted-chat
         - name: POSTGRESQL_DATABASE
-          value: llamastack
+          value: assisted-chat
       ports:
         - containerPort: 5432
       volumeMounts:
@@ -90,6 +92,10 @@ spec:
     - name: config
       hostPath:
         path: ./config
+        type: Directory
+    - name: lightspeed-stack-src
+      hostPath:
+        path: ./lightspeed-stack/src
         type: Directory
     - name: pgdata
       emptyDir: {}
