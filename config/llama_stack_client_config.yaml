@@ -16,7 +16,7 @@ providers:
   - provider_id: gemini
     provider_type: remote::gemini
     config:
-      api_key: ${env.GEMINI_API_KEY:+}
+      api_key: ${env.GEMINI_API_KEY:=}
   vector_io: []
   files: []
   safety: []

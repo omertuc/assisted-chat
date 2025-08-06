@@ -27,11 +27,28 @@ get_available_models() {
 
 select_model() {
     local models_json="$1"
-    local model_identifier
-    model_identifier=$(echo "$models_json" | jq '.models[] | select(.model_type == "llm").identifier' -r | fzf | cut -d'/' -f2-)
-    local provider
-    provider=$(echo "$models_json" | jq '.models[] | select(.identifier == "'"$model_identifier"'") | .provider_id' -r)
-    echo "$model_identifier|$provider"
+    IFS=$'\t' < <(jq -r '
+        # Get all models
+        .models[] 
+
+        # Ignore models that are not LLMs, like embeddings
+        | select(.model_type == "llm") 
+
+        # Extract relevant fields
+        | . as $model
+        | $model.identifier as $model_name
+        | $model.provider_id as $provider
+
+        # Determine type label based on model identifier
+        | (if ($model_name | startswith("gemini/gemini/")) then "Vertex AI"
+           elif ($model_name | contains("gemini")) then "True Gemini"
+           else ""
+           end) as $type_label
+
+        # Format with proper spacing for alignment
+        | "\($model_name | . + (" " * (40 - length)))\($type_label)\t\($model_name)\t\($provider)"
+        ' <<<"$models_json" | fzf --delimiter='\t' --with-nth=1 --accept-nth=2,3 --header="Model Name                               Type") read -r model_name model_provider
+    echo "$model_name|$model_provider"
 }
 
 good_http_response() {
@@ -41,7 +58,7 @@ good_http_response() {
 
 get_conversation_history() {
     local conversation_id="$1"
-    
+
     # Get fresh OCM token for conversation history
     if ! get_ocm_token; then
         echo "Failed to get OCM token for conversation history"
@@ -67,51 +84,43 @@ get_conversation_history() {
 
 display_conversation_history() {
     local conversation_id="$1"
-    
+
     echo -e "${CYAN}=== Conversation History ===${RESET}"
-    
+
     history_response=$(get_conversation_history "$conversation_id")
     if [[ $? -ne 0 ]]; then
         echo "Failed to fetch conversation history"
         return 1
     fi
-    
+
     # Debug: Show the raw response
-    echo "DEBUG: Raw API response:"
-    echo "$history_response" | jq '.'
-    echo "---"
-    
     # Extract chat history from the response
     chat_history=$(echo "$history_response" | jq -r '.chat_history // []')
-    
-    echo "DEBUG: Extracted chat_history:"
-    echo "$chat_history"
-    echo "---"
-    
+
     if [[ "$chat_history" == "[]" ]]; then
         echo "No previous messages in this conversation."
         return 0
     fi
-    
+
     # Display each turn in the conversation
     echo "$chat_history" | jq -c '.[]' | while IFS= read -r turn; do
         messages=$(echo "$turn" | jq -r '.messages // []')
         started_at=$(echo "$turn" | jq -r '.started_at // "Unknown"')
-        
+
         # Format timestamp
         if [[ "$started_at" != "Unknown" && "$started_at" != "null" ]]; then
             formatted_time=$(date -d "$started_at" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "$started_at")
         else
             formatted_time="Unknown time"
         fi
-        
+
         echo -e "\n${CYAN}--- Turn ($formatted_time) ---${RESET}"
-        
+
         # Display each message in the turn
         echo "$messages" | jq -c '.[]' | while IFS= read -r message; do
             content=$(echo "$message" | jq -r '.content // ""')
             msg_type=$(echo "$message" | jq -r '.type // "unknown"')
-            
+
             if [[ "$msg_type" == "user" ]]; then
                 echo -e "${CYAN}User:${RESET} $content"
             elif [[ "$msg_type" == "assistant" ]]; then
@@ -121,7 +130,7 @@ display_conversation_history() {
             fi
         done
     done
-    
+
     echo -e "\n${CYAN}=== End of History ===${RESET}\n"
 }
 
@@ -148,7 +157,7 @@ select_conversation() {
 
     # Parse conversations and create fzf options
     conversations_json=$(echo "$body" | jq -r '.conversations // []')
-    
+
     if [[ "$conversations_json" == "[]" ]]; then
         echo "No existing conversations found. Starting new conversation."
         return 0
@@ -157,21 +166,22 @@ select_conversation() {
     # Create formatted fzf options with conversation metadata
     options=()
     options+=("$(printf "%-36s | %-32s" "New conversation" "Start a fresh conversation")")
-    
+
     while IFS= read -r conv; do
         if [[ -n "$conv" ]]; then
             conv_id=$(echo "$conv" | jq -r '.conversation_id')
             created_at=$(echo "$conv" | jq -r '.created_at // "Unknown"')
             message_count=$(echo "$conv" | jq -r '.message_count // "N/A"')
-            model=$(echo "$conv" | jq -r '.model // "Unknown"')
-            
+            model=$(echo "$conv" | jq -r '.last_used_model // "Unknown"')
+            provider=$(echo "$conv" | jq -r '.last_used_provider // "Unknown"')
+
             # Format the created_at timestamp for display
             if [[ "$created_at" != "Unknown" && "$created_at" != "null" ]]; then
                 formatted_date=$(date -d "$created_at" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$created_at")
             else
                 formatted_date="Unknown"
             fi
-            
+
             # Create a formatted display line with model info
             display_line=$(printf "%-36s | Created: %-16s | Model: %-20s | Messages: %-3s" "$conv_id" "$formatted_date" "$model" "$message_count")
             options+=("$display_line")
@@ -180,7 +190,7 @@ select_conversation() {
 
     # Use fzf to let user select with a better prompt and preview
     selected=$(printf '%s\n' "${options[@]}" | fzf --prompt="Select conversation: " --height=15 --header="ID                                   | Created             | Model                | Messages")
-    
+
     if [[ -z "$selected" ]]; then
         echo "No selection made. Exiting."
         exit 1
@@ -193,7 +203,8 @@ select_conversation() {
         # Extract conversation ID from the selected line (first 36 characters)
         CONVERSATION_ID=$(echo "$selected" | cut -c1-36 | xargs)
         # Extract model from the conversation data
-        CONVERSATION_MODEL=$(echo "$conversations_json" | jq -r '.[] | select(.conversation_id == "'"$CONVERSATION_ID"'") | .model // ""')
+        CONVERSATION_MODEL=$(echo "$conversations_json" | jq -r '.[] | select(.conversation_id == "'"$CONVERSATION_ID"'") | .last_used_model // ""')
+        CONVERSATION_PROVIDER=$(echo "$conversations_json" | jq -r '.[] | select(.conversation_id == "'"$CONVERSATION_ID"'") | .last_used_provider // ""')
     fi
 }
 
@@ -211,15 +222,15 @@ fi
 MODELS=$(get_available_models)
 
 # Select model based on conversation choice
-if [[ -n "$CONVERSATION_MODEL" && "$CONVERSATION_MODEL" != "null" ]]; then
+if [[ -n "$CONVERSATION_MODEL" ]]; then
     echo "Using model from existing conversation: $CONVERSATION_MODEL"
-    MODEL_IDENTIFIER=$(echo "$CONVERSATION_MODEL" | cut -d'/' -f2-)
-    PROVIDER=$(echo "$MODELS" | jq '.models[] | select(.identifier == "'"$MODEL_IDENTIFIER"'") | .provider_id' -r)
+    MODEL_NAME=$(echo "$CONVERSATION_MODEL" | cut -d'/' -f2-)
+    MODEL_PROVIDER=$(echo "$CONVERSATION_PROVIDER" | cut -d'/' -f2-)
 else
     echo "Selecting new model..."
     model_selection=$(select_model "$MODELS")
-    MODEL_IDENTIFIER=$(echo "$model_selection" | cut -d'|' -f1)
-    PROVIDER=$(echo "$model_selection" | cut -d'|' -f2)
+    MODEL_NAME=$(echo "$model_selection" | cut -d'|' -f1)
+    MODEL_PROVIDER=$(echo "$model_selection" | cut -d'|' -f2)
 fi
 
 send_curl_query() {
@@ -238,8 +249,8 @@ send_curl_query() {
         'http://localhost:8090/v1/query' \
         --json '{
     "conversation_id": "'"$CONVERSATION_ID"'",
-    "model": "'"$MODEL_IDENTIFIER"'",
-    "provider": "'"$PROVIDER"'",
+    "model": "'"$MODEL_NAME"'",
+    "provider": "'"$MODEL_PROVIDER"'",
     "query": "'"${query}"'"
   }')
     body=$(cat "$tmpfile")
