@@ -8,7 +8,7 @@ NAMESPACE ?= assisted-chat
 	build-images \
 	build-inspector build-assisted-mcp build-lightspeed-stack build-lightspeed-plus-llama-stack build-ui \
 	deploy-template ci-test deploy-template-local run-k8s stop-k8s rm-k8s logs-k8s load-images \
-	generate run resume stop rm logs query query-int query-stage query-prod query-interactive query-k8s query-k8s-curl delete mcphost test-eval test-eval-k8s psql sqlite transcript-summaries-prod help
+	generate run resume stop rm logs query query-int query-stage query-prod query-interactive query-k8s query-k8s-curl delete mcphost test-eval test-eval-k8s psql sqlite transcript-summaries-prod playground play help
 
 all: help ## Show help information
 
@@ -187,3 +187,9 @@ help: ## Show this help message
 	@echo "  make query-stage"
 	@echo "  make query-interactive"
 	@echo "  make test-eval"
+
+playground: ## Open the playground
+	@ocm token >/dev/null || (echo "You should probably run ocm login --use-auth-code" && exit 1)
+	. ./.env && OCM_TOKEN=$$(ocm token) GEMINI_API_KEY=$$GEMINI_API_KEY python3 playground/play.py
+
+play: playground ## Alias for the 'playground' target

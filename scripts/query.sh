@@ -269,12 +269,13 @@ else
         echo "Failed to get OCM token for query"
         return 1
     fi
-
-    MODELS=$(get_available_models)
-    model_selection=$(select_model "$MODELS")
-    MODEL_NAME=$(echo "$model_selection" | cut -d'|' -f1)
-    MODEL_PROVIDER=$(echo "$model_selection" | cut -d'|' -f2)
-    echo "Example: What is the OpenShift Assisted Installer? Can you list my clusters?"
+    
+    if [[ "${QUERY_ENV:-}" == "" ]]; then
+        MODELS=$(get_available_models)
+        model_selection=$(select_model "$MODELS")
+        MODEL_NAME=$(echo "$model_selection" | cut -d'|' -f1)
+        MODEL_PROVIDER=$(echo "$model_selection" | cut -d'|' -f2)
+    fi
 fi
 
 send_curl_query() {

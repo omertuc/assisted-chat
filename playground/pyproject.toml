@@ -1,0 +1,25 @@
+[project]
+name = "assisted-chat-playground"
+dynamic = ["version"]
+description = "Explore system prompts and models"
+authors = []
+maintainers = [
+    {email = "omer@redhat.com", name = "Omer Tuchfeld"},
+]
+classifiers = []
+keywords = []
+requires-python = ">=3.12,<3.14"
+readme = "README.md"
+dependencies = [
+    "litellm>=1.75.5.post1",
+    "textual>=5.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pyright>=1.1.401",
+    "pylint>=3.3.7",
+    "pydocstyle>=6.3.0",
+    "ruff>=0.12.8",
+]
