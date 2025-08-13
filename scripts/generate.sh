@@ -19,12 +19,31 @@ if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
             read -sr GEMINI_API_KEY
             echo "GEMINI_API_KEY=$GEMINI_API_KEY" >"$PROJECT_ROOT/.env"
             chmod 600 "$PROJECT_ROOT/.env"
+
+            echo 'Gemini key successfully configured.'
+
+            # Create a dummy Vertex AI service account credentials file
+            if [[ ! -f "$PROJECT_ROOT/config/vertex-credentials.json" ]]; then
+                echo 'Also creating a dummy Vertex AI service account credentials file at config/vertex-credentials.json. If you want to use to be able to use both, modify config/vertex-credentials.json manually.'
+                echo '{}' >"$PROJECT_ROOT/config/vertex-credentials.json"
+                chmod 600 "$PROJECT_ROOT/config/vertex-credentials.json"
+            fi
+
         elif [[ "$auth_type" == "v" || "$auth_type" == "V" ]]; then
             echo 'Please enter the path to your Vertex AI service account credentials file:'
             read -r VERTEX_AI_SERVICE_ACCOUNT_CREDENTIALS_PATH
             if [[ ! -f "$VERTEX_AI_SERVICE_ACCOUNT_CREDENTIALS_PATH" ]]; then
                 echo "File not found: $VERTEX_AI_SERVICE_ACCOUNT_CREDENTIALS_PATH"
                 exit 1
+            fi
+
+            if [[ -f "$PROJECT_ROOT/config/vertex-credentials.json" ]]; then
+                echo "File $PROJECT_ROOT/config/vertex-credentials.json already exists. Do you want to overwrite it? (y/n)"
+                read -r overwrite
+                if [[ "$overwrite" != "y" && "$overwrite" != "Y" ]]; then
+                    echo "Exiting without copying."
+                    exit 1
+                fi
             fi
 
             echo "$VERTEX_AI_SERVICE_ACCOUNT_CREDENTIALS_PATH will be copied to $PROJECT_ROOT/config/vertex-credentials.json, do you want to continue? (y/n)"
@@ -42,6 +61,8 @@ if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
             # authentication.
             echo GEMINI_API_KEY="dummy" >"$PROJECT_ROOT/.env"
             chmod 600 "$PROJECT_ROOT/.env"
+
+            echo "Vertex credentials successfully configured."
 
             echo "Your Gemini API key will be set to a dummy value, as it is not needed for Vertex AI service account authentication, if you want to be able to use both, modify .env manually."
         else
