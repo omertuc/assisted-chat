@@ -7,6 +7,10 @@ ocm_token.txt
 .venv
 .python-version
 
+# make graph-measure results
+/measure-*.json
+/measurement_graph.png
+
 # Evaluation output folder
 eval_output*/
 .template-params.override.env

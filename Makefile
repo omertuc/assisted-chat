@@ -4,7 +4,7 @@
 .PHONY: all \
 	build-images \
 	build-inspector build-assisted-mcp build-lightspeed-stack build-lightspeed-plus-llama-stack build-ui \
-	generate run resume stop rm logs query query-int query-stage query-interactive mcphost test-eval psql sqlite help
+	generate run resume stop rm logs query query-measure graph-measure query-int query-stage query-interactive mcphost test-eval psql sqlite help
 
 all: help ## Show help information
 
@@ -59,6 +59,14 @@ logs: ## Show logs for the assisted-chat services
 query: ## Query the assisted-chat services (localhost)
 	@echo "Querying assisted-chat services (localhost)..."
 	./scripts/query.sh
+
+query-measure: ## Run query 10 times and measure performance
+	@echo "Running query measurement (10 iterations)..."
+	MEASURE_MODE=true ./scripts/query.sh
+
+graph-measure: ## Graph all measure-*.json files with matplotlib
+	@echo "Creating graph from measure-*.json files..."
+	./scripts/graph-measure.py
 
 query-int: ## Query the assisted-chat services (integration environment)
 	@echo "Querying assisted-chat services (integration environment)..."

@@ -227,6 +227,10 @@ fi
 
 send_curl_query() {
     local query="$1"
+    local start_time end_time duration
+
+    # Record start time
+    start_time=$(date +%s.%N)
 
     # Get fresh OCM token for this query
     if ! get_ocm_token; then
@@ -261,6 +265,10 @@ send_curl_query() {
     body=$(cat "$tmpfile")
     rm "$tmpfile"
 
+    # Record end time and calculate duration
+    end_time=$(date +%s.%N)
+    duration=$(echo "$end_time - $start_time" | bc)
+
     if ! good_http_response "$status"; then
         echo "Error: HTTP status $status"
         echo "Response body:"
@@ -277,19 +285,77 @@ send_curl_query() {
 
     # Display the response in YAML format with cyan color
     echo -e "${CYAN}$(echo "$body" | python3 -m yq '.' -y)${RESET}"
+    
+    # Return the duration for the caller
+    echo "$duration"
 }
 
-while true; do
-    # Prompt the user for input
-    read -p "Enter your query (or type 'exit' to quit): " user_query
-
-    # Check if the user wants to exit
-    if [[ "$user_query" == "exit" ]]; then
-        echo "Exiting script."
-        break
-    elif [[ "$user_query" == "" ]]; then
-        continue
+# Check if MEASURE_MODE is set to run multiple queries for performance measurement
+if [[ "${MEASURE_MODE:-}" == "true" ]]; then
+    # Prompt for the query to repeat
+    read -p "Enter query to run 10 times: " user_query
+    
+    if [[ -z "$user_query" ]]; then
+        echo "Error: No query provided"
+        exit 1
     fi
+    
+    echo "Running query 10 times with fresh conversation IDs..."
+    
+    # Initialize results array
+    results=()
+    
+    # Run the query 10 times
+    for i in {1..10}; do
+        echo "Run $i/10..."
+        
+        # Reset conversation ID for fresh conversation
+        CONVERSATION_ID=""
+        
+        # Capture both output and timing (last line)
+        output=$(send_curl_query "$user_query" 2>&1)
+        duration=$(echo "$output" | tail -n1)
+        
+        # Add result to array
+        results+=("{\"run\": $i, \"duration_seconds\": $duration, \"query\": \"$(echo "$user_query" | sed 's/"/\\"/g')\"}")
+        
+        echo "Duration: ${duration}s"
+        echo ""
+    done
+    
+    # Create JSON output
+    json_output="["
+    for i in "${!results[@]}"; do
+        if [[ $i -gt 0 ]]; then
+            json_output+=","
+        fi
+        json_output+="${results[$i]}"
+    done
+    json_output+="]"
+    
+    # Write to /tmp/measure.json
+    echo "$json_output" | jq '.' > /tmp/measure.json
+    echo "Results written to /tmp/measure.json"
+    echo ""
+    echo "To compare multiple measurements:"
+    echo "1. Copy /tmp/measure.json to measure-<label>.json in your project directory"
+    echo "2. Run multiple measurements with different labels"
+    echo "3. Use 'make graph-measure' to visualize all results together"
+    
+else
+    # Original interactive mode
+    while true; do
+        # Prompt the user for input
+        read -p "Enter your query (or type 'exit' to quit): " user_query
 
-    send_curl_query "$user_query"
-done
+        # Check if the user wants to exit
+        if [[ "$user_query" == "exit" ]]; then
+            echo "Exiting script."
+            break
+        elif [[ "$user_query" == "" ]]; then
+            continue
+        fi
+
+        send_curl_query "$user_query"
+    done
+fi
