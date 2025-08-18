@@ -154,6 +154,15 @@ objects:
           jwt_configuration:
             user_id_claim: sub
             username_claim: preferred_username
+            role_rules:
+              - jsonpath: "$.realm_access.roles[*]"
+                operator: "contains"
+                value: "redhat:employees"
+                roles: ["redhat_employee"]
+      authorization:
+        access_rules:
+          - role: "redhat_employee"
+            actions: ["query", "streaming_query", "get_models", "feedback"]
       mcp_servers:
         - name: mcp::assisted
           url: "${MCP_SERVER_URL}"
