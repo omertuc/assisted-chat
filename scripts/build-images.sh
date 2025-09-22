@@ -14,7 +14,7 @@ if [[ ! -d "${PROJECT_ROOT}/inspector" ||
 fi
 
 function show_usage() {
-    cat << EOF
+    cat <<EOF
 Usage: $0 [OPTIONS] [IMAGES...]
 
 Build container images for the assisted-chat project.
@@ -83,13 +83,13 @@ function build_lightspeed_stack() {
     pushd "${PROJECT_ROOT}/lightspeed-stack"
     # Comment out the llama-stack dependency in pyproject.toml so it uses the locally installed version
     # instead
-    sed -i '/^[^#].*llama-stack[[:space:]]*>=/ s/^/# /' pyproject.toml
+    sed -i '/^[^#].*llama-stack[[:space:]]*[>=|==]/ s/^/# /' pyproject.toml
     uv lock
     podman build -f Containerfile . --tag localhost/local-ai-chat-lightspeed-stack:latest
     # Undo it
-    sed -i 's/^# \(.*llama-stack[[:space:]]*>=.*\)$/\1/' pyproject.toml
+    sed -i 's/^# \(.*llama-stack[[:space:]]*[>=|==].*\)$/\1/' pyproject.toml
     # uv.lock is guaranteed to change, and it's annoying to have it as a dirty file, so let's restore it
-    git checkout uv.lock 2>/dev/null || true  # Don't fail if uv.lock doesn't exist in git
+    git checkout uv.lock 2>/dev/null || true # Don't fail if uv.lock doesn't exist in git
     popd
     echo "✓ Lightspeed stack image built successfully"
 }
@@ -111,7 +111,7 @@ function build_ui() {
         git apply ../ui-patch.diff 2>/dev/null || echo "Warning: Could not apply UI patch, continuing without it"
     fi
     podman build -f apps/assisted-ui/Containerfile -t localhost/local-ai-chat-ui . --build-arg AIUI_APP_GIT_SHA="$(git rev-parse HEAD)" --build-arg AIUI_APP_VERSION=latest
-    git apply -R ../ui-patch.diff 2>/dev/null || true  # Don't fail if reverse patch doesn't apply
+    git apply -R ../ui-patch.diff 2>/dev/null || true # Don't fail if reverse patch doesn't apply
     popd
     echo "✓ UI image built successfully"
 }
@@ -120,19 +120,19 @@ function build_ui() {
 IMAGES_TO_BUILD=()
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -h|--help)
-            show_usage
-            exit 0
-            ;;
-        inspector|assisted-mcp|lightspeed-stack|lightspeed-plus-llama-stack|ui|all)
-            IMAGES_TO_BUILD+=("$1")
-            shift
-            ;;
-        *)
-            echo "Error: Unknown option or image '$1'"
-            echo "Use '$0 --help' for usage information."
-            exit 1
-            ;;
+    -h | --help)
+        show_usage
+        exit 0
+        ;;
+    inspector | assisted-mcp | lightspeed-stack | lightspeed-plus-llama-stack | ui | all)
+        IMAGES_TO_BUILD+=("$1")
+        shift
+        ;;
+    *)
+        echo "Error: Unknown option or image '$1'"
+        echo "Use '$0 --help' for usage information."
+        exit 1
+        ;;
     esac
 done
 
@@ -147,28 +147,28 @@ check_redhat_subscription
 # Build requested images
 for image in "${IMAGES_TO_BUILD[@]}"; do
     case $image in
-        inspector)
-            build_inspector
-            ;;
-        assisted-mcp)
-            build_assisted_mcp
-            ;;
-        lightspeed-stack)
-            build_lightspeed_stack
-            ;;
-        lightspeed-plus-llama-stack)
-            build_lightspeed_stack_plus_llama_stack
-            ;;
-        ui)
-            build_ui
-            ;;
-        all)
-            build_inspector
-            build_assisted_mcp
-            build_lightspeed_stack
-            build_lightspeed_stack_plus_llama_stack
-            build_ui
-            ;;
+    inspector)
+        build_inspector
+        ;;
+    assisted-mcp)
+        build_assisted_mcp
+        ;;
+    lightspeed-stack)
+        build_lightspeed_stack
+        ;;
+    lightspeed-plus-llama-stack)
+        build_lightspeed_stack_plus_llama_stack
+        ;;
+    ui)
+        build_ui
+        ;;
+    all)
+        build_inspector
+        build_assisted_mcp
+        build_lightspeed_stack
+        build_lightspeed_stack_plus_llama_stack
+        build_ui
+        ;;
     esac
 done
 

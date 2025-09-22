@@ -13,10 +13,6 @@ apis:
 - vector_io
 providers:
   inference:
-  - provider_id: gemini
-    provider_type: remote::gemini
-    config:
-      api_key: ${env.GEMINI_API_KEY:=}
   - provider_id: vllm
     provider_type: remote::vllm
     config:
@@ -87,35 +83,10 @@ inference_store:
   password: ${env.POSTGRES_PASSWORD:=assisted-chat}
 models:
 - metadata: {}
-  model_id: gemini-2.0-flash
-  provider_id: gemini
-  provider_model_id: gemini-2.0-flash
-  model_type: llm
-- metadata: {}
-  model_id: gemini-2.5-pro
-  provider_id: gemini
-  provider_model_id: gemini-2.5-pro
-  model_type: llm
-- metadata: {}
-  model_id: gemini-2.5-flash
-  provider_id: gemini
-  provider_model_id: gemini-2.5-flash
-  model_type: llm
-#- metadata: {}
-#  model_id: Qwen2.5-VL-7B-Instruct
-#  provider_id: vllm
-#  provider_model_id: Qwen2.5-VL-7B-Instruct
-#  model_type: llm
-- metadata: {}
   model_id: openai/gpt-oss-20b
   provider_id: vllm
   provider_model_id: openai/gpt-oss-20b
   model_type: llm
-#- metadata: {}
-#  model_id: Qwen/Qwen3-8B
-#  provider_id: vllm
-#  provider_model_id: Qwen/Qwen3-8B
-#  model_type: llm
 shields: []
 vector_dbs: []
 datasets: []

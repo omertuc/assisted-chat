@@ -251,7 +251,7 @@ select_conversation() {
 }
 
 CONVERSATION_ID=""
-select_conversation
+# select_conversation
 
 # Display conversation history if an existing conversation was selected
 if [[ -n "$CONVERSATION_ID" ]]; then
