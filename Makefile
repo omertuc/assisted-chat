@@ -136,7 +136,7 @@ test-eval: ## Run agent evaluation tests
 	echo "$$OCM_TOKEN" > test/evals/ocm_token.txt
 	cp test/evals/eval_data.yaml $$TEMP_DIR/eval_data.yaml
 	sed -i "s/uniq-cluster-name/$${UNIQUE_ID}/g" $$TEMP_DIR/eval_data.yaml
-	cd test/evals && python eval.py --eval_data_yaml $$TEMP_DIR/eval_data.yaml
+	cd test/evals && GOOGLE_APPLICATION_CREDENTIALS=config/vertex-credentials.json python eval.py --eval_data_yaml $$TEMP_DIR/eval_data.yaml --judge_provider="vertex"
 
 .ONESHELL:
 test-eval-k8s: ## Run evaluation tests against k8s-deployed service via port-forward

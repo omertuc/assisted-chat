@@ -6,6 +6,7 @@ import sys
 import os
 
 from lsc_agent_eval import AgentGoalEval
+from junit_reporter import generate_junit_xml
 
 # Configure logging to show all messages from agent_eval library
 logging.basicConfig(
@@ -90,6 +91,10 @@ evaluator = AgentGoalEval(args)
 evaluator.run_evaluation()
 # Get result summary
 result_summary = evaluator.get_result_summary()
+
+# Generate JUnit XML for spyglass
+artifacts_dir = os.getenv('ARTIFACTS_DIR', 'eval_output')
+generate_junit_xml(evaluator, artifacts_dir)
 
 failed_evals_count = result_summary["FAIL"] + result_summary["ERROR"]
 if failed_evals_count:

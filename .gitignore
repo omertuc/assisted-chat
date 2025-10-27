@@ -12,3 +12,5 @@ test/evals/*token*
 # Evaluation output folder
 eval_output*/
 .template-params.override.env
+
+__pycache__/
